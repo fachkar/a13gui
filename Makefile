@@ -27,7 +27,7 @@ LIBDIRS = \
 	-L/usr/X11R6/lib
 
 LIBS = \
-	-lX11 -lXext -lm \
+	-lX11 -lXext -lm -lcurl\
 	$(shell pkg-config gtk+-2.0 --libs)
 
 #

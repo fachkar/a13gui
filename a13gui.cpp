@@ -155,7 +155,7 @@ prog_clicked_handler(GtkWidget *widget)
                 gtk_widget_destroy(dialog);
                 g_free (syncMsgMarkup);
 
-                syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be shown in 10 secs </span>");
+                syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be re-shown in 10 secs </span>");
                 gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
                 g_free (syncMsgMarkup);
                 free(command);
@@ -213,7 +213,7 @@ prog_clicked_handler(GtkWidget *widget)
                 gtk_widget_destroy(dialog);
                 g_free (syncMsgMarkup);
 
-                syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be shown in 10 secs </span>");
+                syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be re-shown in 10 secs </span>");
                 gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
                 g_free (syncMsgMarkup);
                 free(command);
@@ -1032,7 +1032,7 @@ prog_clicked_handler(GtkWidget *widget)
             gtk_widget_destroy(dialog);
             g_free (syncMsgMarkup);
 
-            syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be shown in 10 secs </span>");
+            syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be re-shown in 10 secs </span>");
             gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
             g_free (syncMsgMarkup);
             g_timeout_add(10000, (GSourceFunc) program_handler, NULL);
@@ -1073,7 +1073,7 @@ adb_command_failure:
     gtk_widget_destroy(dialog);
     g_free (syncMsgMarkup);
 
-    syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be shown in 10 secs </span>");
+    syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be re-shown in 10 secs </span>");
     gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
     g_free (syncMsgMarkup);
     if (command)
@@ -1112,7 +1112,7 @@ curl_failed:
     gtk_widget_destroy(dialog);
     g_free (syncMsgMarkup);
 
-    syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be shown in 10 secs </span>");
+    syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be re-shown in 10 secs </span>");
     gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
     g_free (syncMsgMarkup);
     if (command)
@@ -1151,7 +1151,7 @@ server_error_msg:
     gtk_widget_destroy(dialog);
     g_free (syncMsgMarkup);
 
-    syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be shown in 10 secs </span>");
+    syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be re-shown in 10 secs </span>");
     gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
     g_free (syncMsgMarkup);
     if (command)
@@ -1190,7 +1190,7 @@ wrong_server_response:
     gtk_widget_destroy(dialog);
     g_free (syncMsgMarkup);
 
-    syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be shown in 10 secs </span>");
+    syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be re-shown in 10 secs </span>");
     gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
     g_free (syncMsgMarkup);
     if (command)
@@ -1229,7 +1229,7 @@ no_device_error:
     gtk_widget_destroy(dialog);
     g_free (syncMsgMarkup);
 
-    syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be shown in 10 secs </span>");
+    syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be re-shown in 10 secs </span>");
     gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
     g_free (syncMsgMarkup);
     if (command)
@@ -1457,7 +1457,7 @@ curl_failed:
     if (dw_message)
         free(dw_message);
 
-    syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"red\" size=\"large\">%s</span> 'Server Sync' button will re-show in 10  secs", "Error connecting to server!    ");
+    syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"red\" size=\"large\">%s</span> 'Server Sync' button will re-shown in 10  secs", "Error connecting to server!    ");
     gtk_label_set_markup(GTK_LABEL(syncLabel), syncMsgMarkup);
     g_free (syncMsgMarkup);
     g_timeout_add(10000, (GSourceFunc) timer_handler, NULL);

@@ -134,7 +134,7 @@ prog_clicked_handler(GtkWidget *widget)
         if (pnuclearOutputFound != NULL) {
 
             ///checking if any devices are out there
-            if (asprintf(&command, "%s", "adb devices") < 0) {
+            if (asprintf(&command, "%s", "adb devices 2>&1") < 0) {
                 goto malloc_failure;
             }
 
@@ -216,6 +216,7 @@ prog_clicked_handler(GtkWidget *widget)
                 syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be re-shown in 10 secs </span>");
                 gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
                 g_free (syncMsgMarkup);
+                syncMsgMarkup = NULL;
                 free(command);
                 command = NULL;
                 free(allfpipe);
@@ -258,6 +259,7 @@ prog_clicked_handler(GtkWidget *widget)
                     }
                     if (tmpmac)
                         free(tmpmac);
+                    tmpmac = NULL;
                 } else
                     asprintf(&firmware, "%s", pch);
             } else {
@@ -274,6 +276,7 @@ prog_clicked_handler(GtkWidget *widget)
 
             if (firmware)
                 free(firmware);
+            firmware = NULL;
 
             curl_global_init(CURL_GLOBAL_ALL);
             curl = curl_easy_init();
@@ -319,6 +322,7 @@ prog_clicked_handler(GtkWidget *widget)
                                         }
                                         if (dw_serialid)
                                             free(dw_serialid);
+                                        dw_serialid = NULL;
                                     } else {
                                         goto wrong_server_response;
                                     }
@@ -334,6 +338,7 @@ prog_clicked_handler(GtkWidget *widget)
                         }
                         if (dw_message)
                             free(dw_message);
+                        dw_message = NULL;
                     }
                 } else {
                     goto wrong_server_response;
@@ -348,13 +353,17 @@ prog_clicked_handler(GtkWidget *widget)
 
             if (chunk.memory)
                 free(chunk.memory);
+            chunk.memory = NULL;
             if (bodyChunk.memory)
                 free(bodyChunk.memory);
+            bodyChunk.memory = NULL;
 
             if (postrequest)
                 free(postrequest);
+            postrequest = NULL;
             if (response)
                 free(response);
+            response = NULL;
 
             /// get a lock
             syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span>", "Backing-up block C .. ", "phase 1");
@@ -365,7 +374,7 @@ prog_clicked_handler(GtkWidget *widget)
             system("adb shell 'echo \"halt\" > /sys/power/wake_lock'");
 
             /// get original kernel
-            if (asprintf(&command, "%s", "adb shell 'cat /dev/block/nandc > /mnt/sdcard/nandc.img'") < 0) {
+            if (asprintf(&command, "%s", "adb shell 'cat /dev/block/nandc > /mnt/sdcard/nandc.img' 2>&1") < 0) {
                 goto malloc_failure;
             }
 
@@ -388,7 +397,7 @@ prog_clicked_handler(GtkWidget *widget)
             while (gtk_events_pending ())
                 gtk_main_iteration ();
             g_free (syncMsgMarkup);
-            if (asprintf(&command, "%s", "adb pull /mnt/sdcard/nandc.img") < 0) {
+            if (asprintf(&command, "%s", "adb pull /mnt/sdcard/nandc.img 2>&1") < 0) {
                 goto malloc_failure;
             }
 
@@ -396,7 +405,7 @@ prog_clicked_handler(GtkWidget *widget)
                 goto malloc_failure;
             }
 
-            if (strlen(allfpipe)> 3) {
+            if (strstr(allfpipe,"bytes in") == NULL) {
                 goto adb_command_failure;
             }
             free(command);
@@ -411,7 +420,7 @@ prog_clicked_handler(GtkWidget *widget)
             while (gtk_events_pending ())
                 gtk_main_iteration ();
             g_free (syncMsgMarkup);
-            if (asprintf(&command, "%s", "./split_bootimg.pl nandc.img") < 0) {
+            if (asprintf(&command, "%s", "./split_bootimg.pl nandc.img 2>&1") < 0) {
                 goto malloc_failure;
             }
 
@@ -435,7 +444,7 @@ prog_clicked_handler(GtkWidget *widget)
                 gtk_main_iteration ();
             g_free (syncMsgMarkup);
 
-            if (asprintf(&command, "%s", "adb pull /init ./case2ramdisk/init") < 0) {
+            if (asprintf(&command, "%s", "adb pull /init ./case2ramdisk/init 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -450,24 +459,7 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s", "adb pull /init.rc ./case2ramdisk/init.rc") < 0) {
-                goto malloc_failure;
-            }
-
-            if (!issue_adb_command(command)) {
-                goto malloc_failure;
-            }
-
-            if (strstr(allfpipe,"bytes in") == NULL) {
-                goto adb_command_failure;
-            }
-            free(command);
-            free(allfpipe);
-            command = NULL;
-            allfpipe = NULL;
-
-
-            if (asprintf(&command, "%s", "adb pull /init.goldfish.rc ./case2ramdisk/init.goldfish.rc") < 0) {
+            if (asprintf(&command, "%s", "adb pull /init.rc ./case2ramdisk/init.rc 2>&1") < 0) {
                 goto malloc_failure;
             }
 
@@ -484,7 +476,24 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s", "adb pull /init.sun5i.rc ./case2ramdisk/init.sun5i.rc") < 0) {
+            if (asprintf(&command, "%s", "adb pull /init.goldfish.rc ./case2ramdisk/init.goldfish.rc 2>&1") < 0) {
+                goto malloc_failure;
+            }
+
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+
+            if (strstr(allfpipe,"bytes in") == NULL) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (asprintf(&command, "%s", "adb pull /init.sun5i.rc ./case2ramdisk/init.sun5i.rc 2>&1") < 0) {
                 goto malloc_failure;
             }
 
@@ -502,7 +511,7 @@ prog_clicked_handler(GtkWidget *widget)
 
 
 
-            if (asprintf(&command, "%s", "adb pull /init.sun5i.usb.rc ./case2ramdisk/init.sun5i.usb.rc") < 0) {
+            if (asprintf(&command, "%s", "adb pull /init.sun5i.usb.rc ./case2ramdisk/init.sun5i.usb.rc 2>&1") < 0) {
                 goto malloc_failure;
             }
 
@@ -519,7 +528,7 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s", "adb pull /ueventd.goldfish.rc ./case2ramdisk/ueventd.goldfish.rc") < 0) {
+            if (asprintf(&command, "%s", "adb pull /ueventd.goldfish.rc ./case2ramdisk/ueventd.goldfish.rc 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -534,7 +543,7 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s", "adb pull /ueventd.rc ./case2ramdisk/ueventd.rc") < 0) {
+            if (asprintf(&command, "%s", "adb pull /ueventd.rc ./case2ramdisk/ueventd.rc 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -549,7 +558,7 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s", "adb pull /ueventd.sun5i.rc ./case2ramdisk/ueventd.sun5i.rc") < 0) {
+            if (asprintf(&command, "%s", "adb pull /ueventd.sun5i.rc ./case2ramdisk/ueventd.sun5i.rc 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -564,7 +573,7 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s", "adb pull /ueventd.sun5i.rc ./case2ramdisk/ueventd.sun5i.rc") < 0) {
+            if (asprintf(&command, "%s", "adb pull /ueventd.sun5i.rc ./case2ramdisk/ueventd.sun5i.rc 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -586,7 +595,7 @@ prog_clicked_handler(GtkWidget *widget)
                 gtk_main_iteration ();
             g_free (syncMsgMarkup);
 
-            if (asprintf(&command, "%s", "adb push ./preinstall.sh /system/bin/") < 0) {
+            if (asprintf(&command, "%s", "adb push ./preinstall.sh /system/bin/ 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -601,7 +610,7 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s", "adb shell chmod 750 /system/bin/preinstall.sh") < 0) {
+            if (asprintf(&command, "%s", "adb shell chmod 750 /system/bin/preinstall.sh 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -622,7 +631,7 @@ prog_clicked_handler(GtkWidget *widget)
                 gtk_main_iteration ();
             g_free (syncMsgMarkup);
 
-            if (asprintf(&command, "%s", "adb shell mkdir /databk") < 0) {
+            if (asprintf(&command, "%s", "adb shell mkdir /databk 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -637,7 +646,7 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s", "adb shell mount -t ext4 /dev/block/nandi /databk") < 0) {
+            if (asprintf(&command, "%s", "adb shell mount -t ext4 /dev/block/nandi /databk 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -652,7 +661,7 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s", "adb shell rm /databk/data_backup.tar") < 0) {
+            if (asprintf(&command, "%s", "adb shell rm /databk/data_backup.tar 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -667,7 +676,7 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s", "adb shell sync") < 0) {
+            if (asprintf(&command, "%s", "adb shell sync 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -682,7 +691,7 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s", "adb push ./case2_data_backup.tar /databk/data_backup.tar") < 0) {
+            if (asprintf(&command, "%s", "adb push ./case2_data_backup.tar /databk/data_backup.tar 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -698,7 +707,7 @@ prog_clicked_handler(GtkWidget *widget)
 
 
 
-            if (asprintf(&command, "%s", "adb shell sync") < 0) {
+            if (asprintf(&command, "%s", "adb shell sync 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -713,7 +722,7 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s", "adb shell umount /databk") < 0) {
+            if (asprintf(&command, "%s", "adb shell umount /databk 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -727,7 +736,7 @@ prog_clicked_handler(GtkWidget *widget)
             command = NULL;
             allfpipe = NULL;
 
-            if (asprintf(&command, "%s", "adb shell sync") < 0) {
+            if (asprintf(&command, "%s", "adb shell sync 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -749,7 +758,7 @@ prog_clicked_handler(GtkWidget *widget)
                 gtk_main_iteration ();
             g_free (syncMsgMarkup);
 
-            if (asprintf(&command, "%s", "adb shell mkdir /nanda") < 0) {
+            if (asprintf(&command, "%s", "adb shell mkdir /nanda 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -764,7 +773,7 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s", "adb shell mount -t vfat /dev/block/nanda /nanda") < 0) {
+            if (asprintf(&command, "%s", "adb shell mount -t vfat /dev/block/nanda /nanda 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -779,7 +788,7 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s", "adb push ./linux.bmp /nanda/linux/linux.bmp") < 0) {
+            if (asprintf(&command, "%s", "adb push ./linux.bmp /nanda/linux/linux.bmp 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -794,7 +803,7 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s", "adb shell sync") < 0) {
+            if (asprintf(&command, "%s", "adb shell sync 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -809,7 +818,7 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s", "adb shell umount /nanda") < 0) {
+            if (asprintf(&command, "%s", "adb shell umount /nanda 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -831,7 +840,7 @@ prog_clicked_handler(GtkWidget *widget)
                 gtk_main_iteration ();
             g_free (syncMsgMarkup);
 
-            if (asprintf(&command, "%s%s%s", "echo \"ro.serialno=", serialno , "\" >> ./case2ramdisk/default.prop") < 0) {
+            if (asprintf(&command, "%s%s%s", "echo \"ro.serialno=", serialno , "\" >> ./case2ramdisk/default.prop 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -846,7 +855,7 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s%s%s", "echo \"ro.product.brand=", gtk_combo_box_get_active_text((GtkComboBox*)brandCombo) , "\" >> ./case2ramdisk/default.prop") < 0) {
+            if (asprintf(&command, "%s%s%s", "echo \"ro.product.brand=", gtk_combo_box_get_active_text((GtkComboBox*)brandCombo) , "\" >> ./case2ramdisk/default.prop 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -861,7 +870,7 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s%s%s", "echo \"ro.product.model=", gtk_combo_box_get_active_text((GtkComboBox*)modelCombo) , "\" >> ./case2ramdisk/default.prop") < 0) {
+            if (asprintf(&command, "%s%s%s", "echo \"ro.product.model=", gtk_combo_box_get_active_text((GtkComboBox*)modelCombo) , "\" >> ./case2ramdisk/default.prop 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -876,7 +885,7 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s", "../../../host/linux-x86/bin/mkbootfs ./case2ramdisk | minigzip > ./ramdisk-recovery.img") < 0) {
+            if (asprintf(&command, "%s", "../../../host/linux-x86/bin/mkbootfs ./case2ramdisk | minigzip > ./ramdisk-recovery.img 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -891,7 +900,7 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s", "../../../host/linux-x86/bin/mkbootimg  --kernel ./nandc.img-kernel --ramdisk ./ramdisk-recovery.img --cmdline \"console=ttyS0,115200 rw init=/init loglevel=5\" --base 0x40000000 --output ./modfrecovery.img") < 0) {
+            if (asprintf(&command, "%s", "../../../host/linux-x86/bin/mkbootimg  --kernel ./nandc.img-kernel --ramdisk ./ramdisk-recovery.img --cmdline \"console=ttyS0,115200 rw init=/init loglevel=5\" --base 0x40000000 --output ./modfrecovery.img 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -906,7 +915,7 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s", "adb push ./modfrecovery.img /mnt/sdcard/") < 0) {
+            if (asprintf(&command, "%s", "adb push ./modfrecovery.img /mnt/sdcard/ 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -924,7 +933,7 @@ prog_clicked_handler(GtkWidget *widget)
             system("adb shell 'cat /mnt/sdcard/modfrecovery.img > /dev/block/nandc'");
 
 
-            if (asprintf(&command, "%s", "adb shell rm /mnt/sdcard/modfrecovery.img") < 0) {
+            if (asprintf(&command, "%s", "adb shell rm /mnt/sdcard/modfrecovery.img 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -938,7 +947,7 @@ prog_clicked_handler(GtkWidget *widget)
             command = NULL;
             allfpipe = NULL;
 
-            if (asprintf(&command, "%s", "adb shell sync") < 0) {
+            if (asprintf(&command, "%s", "adb shell sync 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -960,7 +969,7 @@ prog_clicked_handler(GtkWidget *widget)
                 gtk_main_iteration ();
             g_free (syncMsgMarkup);
 
-            if (asprintf(&command, "%s", "adb push ./User_Manual_UbiSlate7Ci.pdf /mnt/sdcard/") < 0) {
+            if (asprintf(&command, "%s", "adb push ./User_Manual_UbiSlate7Ci.pdf /mnt/sdcard/ 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -981,7 +990,7 @@ prog_clicked_handler(GtkWidget *widget)
                 gtk_main_iteration ();
             g_free (syncMsgMarkup);
 
-            if (asprintf(&command, "%s", "adb shell am broadcast -a android.intent.action.MASTER_CLEAR") < 0) {
+            if (asprintf(&command, "%s", "adb shell am broadcast -a android.intent.action.MASTER_CLEAR 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -1000,7 +1009,7 @@ prog_clicked_handler(GtkWidget *widget)
             system("rm ./modfrecovery.img");
 
 
-            if (asprintf(&command, "%s", "cp ./case2default.prop ./case2ramdisk/default.prop") < 0) {
+            if (asprintf(&command, "%s", "cp ./case2default.prop ./case2ramdisk/default.prop 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -1014,7 +1023,7 @@ prog_clicked_handler(GtkWidget *widget)
             command = NULL;
             allfpipe = NULL;
 
-            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"large\">%s</span><b> %s </b>", "Success!\nSerial: %s\nMAC: %s", serialno, mac_add);
+            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"large\">%s</span><b>Serial: %s\nMAC: %s</b>", "Success!\n", serialno, mac_add);
             if (mac_add)
                 free(mac_add);
             mac_add = NULL;
@@ -1389,6 +1398,7 @@ sync_clicked_handler(GtkWidget *widget)
                                             }
                                             if (dw_models)
                                                 free(dw_models);
+                                            dw_models = NULL;
                                         } else {
                                             goto wrong_server_response;
                                         }
@@ -1401,6 +1411,7 @@ sync_clicked_handler(GtkWidget *widget)
                                 }
                                 if (dw_brands)
                                     free(dw_brands);
+                                dw_brands = NULL;
                             } else {
                                 goto wrong_server_response;
                             }
@@ -1416,6 +1427,7 @@ sync_clicked_handler(GtkWidget *widget)
                 }
                 if (dw_message)
                     free(dw_message);
+                dw_message = NULL;
             }
         } else {
             goto wrong_server_response;

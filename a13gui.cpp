@@ -16,20 +16,19 @@ char *dw_brands = NULL;
 char *dw_models = NULL;
 char *allfpipe = NULL;
 
+GtkWidget *window = NULL;
+GdkPixbuf *icon_pix = NULL;
 
-GtkWidget *window;
-GdkPixbuf *icon_pix;
+GtkWidget *mainVBox = NULL;
+GtkWidget *syncLabel = NULL,*syncVBox = NULL, *syncHBox = NULL, *syncAlignment = NULL;
+GtkWidget *usernameHBox = NULL, *usernameLabel = NULL, *usernameEntry = NULL;
+GtkWidget *passHBox = NULL, *passLabel = NULL, *passEntry = NULL;
+GtkWidget *syncButton = NULL;
 
-GtkWidget *mainVBox;
-GtkWidget *syncLabel,*syncVBox, *syncHBox, *syncAlignment;
-GtkWidget *usernameHBox, *usernameLabel, *usernameEntry;
-GtkWidget *passHBox, *passLabel, *passEntry;
-GtkWidget *syncButton;
-
-GtkWidget *progVBox, *brandHBox, *modelHBox, *brandmodelHBox, *msgHBox;
-GtkWidget *brandLabel, *brandCombo, *modelLabel, *modelCombo, *progButton;
-GtkWidget *progHSeparator;
-GtkWidget *progMsgLable;
+GtkWidget *progVBox = NULL, *brandHBox = NULL, *modelHBox = NULL, *brandmodelHBox = NULL, *msgHBox = NULL;
+GtkWidget *brandLabel = NULL, *brandCombo = NULL, *modelLabel = NULL, *modelCombo = NULL, *progButton = NULL;
+GtkWidget *progHSeparator = NULL;
+GtkWidget *progMsgLable = NULL;
 
 struct MemoryStruct {
     char *memory;
@@ -59,7 +58,7 @@ WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp)
 gboolean issue_adb_command(char * command)
 {
     gboolean ret = TRUE;
-    FILE *fpipe;
+    FILE *fpipe = NULL;
     char line[256];
 
     memset(line,0, sizeof line);
@@ -90,7 +89,7 @@ gboolean issue_adb_command(char * command)
 static gboolean
 program_handler(GtkWidget *widget)
 {
-    syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\">  You can start programming with this Brand/Model combination   </span><span foreground=\"green\" size=\"x-large\"> %s </span>", "-->>");
+    syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\">You can start programming with this </span><span foreground=\"yellow\" size=\"x-large\"> %s </span>|<span foreground=\"yellow\" size=\"x-large\"> %s </span><span size=\"x-large\"> combination </span><span foreground=\"green\" size=\"x-large\"> %s </span>", "Brand", "Model", "-->>");
     gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
     g_free (syncMsgMarkup);
     gtk_widget_show(progButton);
@@ -113,9 +112,9 @@ prog_clicked_handler(GtkWidget *widget)
     GtkWidget *dialog;
     char *command = NULL;
     char *pch = NULL;
-    char* response;
-    char *postrequest;
-    CURL *curl;
+    char *response = NULL;
+    char *postrequest = NULL;
+    CURL *curl = NULL;
     CURLcode res;
     struct MemoryStruct chunk;
 
@@ -273,8 +272,6 @@ prog_clicked_handler(GtkWidget *widget)
             asprintf(&postrequest, "provider=%s&providerkey=%s&clientid=%s&action=getserialid&brand=%s&model=%s&firmware=%s&macid=%s", gtk_entry_get_text(GTK_ENTRY(usernameEntry)), gtk_entry_get_text(GTK_ENTRY(passEntry)), g_get_host_name()
                      , gtk_combo_box_get_active_text((GtkComboBox*)brandCombo), gtk_combo_box_get_active_text((GtkComboBox*)modelCombo), firmware, mac_add);
 
-            if (mac_add)
-                free(mac_add);
             if (firmware)
                 free(firmware);
 
@@ -359,7 +356,671 @@ prog_clicked_handler(GtkWidget *widget)
             if (response)
                 free(response);
 
-            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"large\">%s</span><b> %s </b>", "Got Serial\n", serialno);
+            /// get a lock
+            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span>", "Backing-up block C .. ", "phase 1");
+            gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+            while (gtk_events_pending ())
+                gtk_main_iteration ();
+            g_free (syncMsgMarkup);
+            system("adb shell 'echo \"halt\" > /sys/power/wake_lock'");
+
+            /// get original kernel
+            if (asprintf(&command, "%s", "adb shell 'cat /dev/block/nandc > /mnt/sdcard/nandc.img'") < 0) {
+                goto malloc_failure;
+            }
+
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+
+            if (strlen(allfpipe)> 3) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            /// pull original kernel
+            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span>", "Backing-up block C .. ", "phase 2");
+            gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+            while (gtk_events_pending ())
+                gtk_main_iteration ();
+            g_free (syncMsgMarkup);
+            if (asprintf(&command, "%s", "adb pull /mnt/sdcard/nandc.img") < 0) {
+                goto malloc_failure;
+            }
+
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+
+            if (strlen(allfpipe)> 3) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            /// pull original kernel
+            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span>", "Pre-Processing block C .. ", "phase 3");
+            gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+            while (gtk_events_pending ())
+                gtk_main_iteration ();
+            g_free (syncMsgMarkup);
+            if (asprintf(&command, "%s", "./split_bootimg.pl nandc.img") < 0) {
+                goto malloc_failure;
+            }
+
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+
+            if (strstr(allfpipe,"Writing nandc.img-kernel ... complete.") == NULL) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            /// pull inits
+            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span>", "Processing block A .. ", "phase 4");
+            gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+            while (gtk_events_pending ())
+                gtk_main_iteration ();
+            g_free (syncMsgMarkup);
+
+            if (asprintf(&command, "%s", "adb pull /init ./case2ramdisk/init") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strstr(allfpipe,"bytes in") == NULL) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (asprintf(&command, "%s", "adb pull /init.rc ./case2ramdisk/init.rc") < 0) {
+                goto malloc_failure;
+            }
+
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+
+            if (strstr(allfpipe,"bytes in") == NULL) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (asprintf(&command, "%s", "adb pull /init.goldfish.rc ./case2ramdisk/init.goldfish.rc") < 0) {
+                goto malloc_failure;
+            }
+
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+
+            if (strstr(allfpipe,"bytes in") == NULL) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (asprintf(&command, "%s", "adb pull /init.sun5i.rc ./case2ramdisk/init.sun5i.rc") < 0) {
+                goto malloc_failure;
+            }
+
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+
+            if (strstr(allfpipe,"bytes in") == NULL) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+
+            if (asprintf(&command, "%s", "adb pull /init.sun5i.usb.rc ./case2ramdisk/init.sun5i.usb.rc") < 0) {
+                goto malloc_failure;
+            }
+
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+
+            if (strstr(allfpipe,"bytes in") == NULL) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (asprintf(&command, "%s", "adb pull /ueventd.goldfish.rc ./case2ramdisk/ueventd.goldfish.rc") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strstr(allfpipe,"bytes in") == NULL) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (asprintf(&command, "%s", "adb pull /ueventd.rc ./case2ramdisk/ueventd.rc") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strstr(allfpipe,"bytes in") == NULL) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (asprintf(&command, "%s", "adb pull /ueventd.sun5i.rc ./case2ramdisk/ueventd.sun5i.rc") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strstr(allfpipe,"bytes in") == NULL) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (asprintf(&command, "%s", "adb pull /ueventd.sun5i.rc ./case2ramdisk/ueventd.sun5i.rc") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strstr(allfpipe,"bytes in") == NULL) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            /// push preinstall
+            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span>", "Processing block D .. ", "phase 5");
+            gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+            while (gtk_events_pending ())
+                gtk_main_iteration ();
+            g_free (syncMsgMarkup);
+
+            if (asprintf(&command, "%s", "adb push ./preinstall.sh /system/bin/") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strstr(allfpipe,"bytes in") == NULL) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (asprintf(&command, "%s", "adb shell chmod 750 /system/bin/preinstall.sh") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strlen(allfpipe)> 3) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+            /// push preinstall
+            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span>", "Processing block I .. ", "phase 6");
+            gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+            while (gtk_events_pending ())
+                gtk_main_iteration ();
+            g_free (syncMsgMarkup);
+
+            if (asprintf(&command, "%s", "adb shell mkdir /databk") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strlen(allfpipe)> 3) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (asprintf(&command, "%s", "adb shell mount -t ext4 /dev/block/nandi /databk") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strlen(allfpipe)> 3) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (asprintf(&command, "%s", "adb shell rm /databk/data_backup.tar") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+//             if (strlen(allfpipe)> 3) {
+//                 goto adb_command_failure;
+//             }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (asprintf(&command, "%s", "adb shell sync") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strlen(allfpipe)> 3) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (asprintf(&command, "%s", "adb push ./case2_data_backup.tar /databk/data_backup.tar") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strstr(allfpipe,"bytes in") == NULL) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+
+            if (asprintf(&command, "%s", "adb shell sync") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strlen(allfpipe)> 3) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (asprintf(&command, "%s", "adb shell umount /databk") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strlen(allfpipe)> 3) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+            if (asprintf(&command, "%s", "adb shell sync") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strlen(allfpipe)> 3) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            /// prepare nanda
+            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span>", "Processing block C .. ", "phase 7");
+            gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+            while (gtk_events_pending ())
+                gtk_main_iteration ();
+            g_free (syncMsgMarkup);
+
+            if (asprintf(&command, "%s", "adb shell mkdir /nanda") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strlen(allfpipe)> 3) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (asprintf(&command, "%s", "adb shell mount -t vfat /dev/block/nanda /nanda") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strlen(allfpipe)> 3) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (asprintf(&command, "%s", "adb push ./linux.bmp /nanda/linux/linux.bmp") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strstr(allfpipe,"bytes in") == NULL) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (asprintf(&command, "%s", "adb shell sync") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strlen(allfpipe)> 3) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (asprintf(&command, "%s", "adb shell umount /nanda") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strlen(allfpipe)> 3) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            /// fusing serial brand and model
+            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span>", "Fusing serial | brand | model .. ", "phase 8");
+            gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+            while (gtk_events_pending ())
+                gtk_main_iteration ();
+            g_free (syncMsgMarkup);
+
+            if (asprintf(&command, "%s%s%s", "echo \"ro.serialno=", serialno , "\" >> ./case2ramdisk/default.prop") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strlen(allfpipe)> 3) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (asprintf(&command, "%s%s%s", "echo \"ro.product.brand=", gtk_combo_box_get_active_text((GtkComboBox*)brandCombo) , "\" >> ./case2ramdisk/default.prop") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strlen(allfpipe)> 3) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (asprintf(&command, "%s%s%s", "echo \"ro.product.model=", gtk_combo_box_get_active_text((GtkComboBox*)modelCombo) , "\" >> ./case2ramdisk/default.prop") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strlen(allfpipe)> 3) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (asprintf(&command, "%s", "../../../host/linux-x86/bin/mkbootfs ./case2ramdisk | minigzip > ./ramdisk-recovery.img") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strlen(allfpipe)> 3) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (asprintf(&command, "%s", "../../../host/linux-x86/bin/mkbootimg  --kernel ./nandc.img-kernel --ramdisk ./ramdisk-recovery.img --cmdline \"console=ttyS0,115200 rw init=/init loglevel=5\" --base 0x40000000 --output ./modfrecovery.img") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strlen(allfpipe)> 3) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (asprintf(&command, "%s", "adb push ./modfrecovery.img /mnt/sdcard/") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strstr(allfpipe,"bytes in") == NULL) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+            system("adb shell 'cat /dev/zero > /dev/block/nandc'");
+            system("adb shell 'cat /mnt/sdcard/modfrecovery.img > /dev/block/nandc'");
+
+
+            if (asprintf(&command, "%s", "adb shell rm /mnt/sdcard/modfrecovery.img") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strlen(allfpipe)> 3) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+            if (asprintf(&command, "%s", "adb shell sync") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strlen(allfpipe)> 3) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            /// fusing serial brand and model
+            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span>", "Pushing user manual .. ", "phase 9");
+            gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+            while (gtk_events_pending ())
+                gtk_main_iteration ();
+            g_free (syncMsgMarkup);
+
+            if (asprintf(&command, "%s", "adb push ./User_Manual_UbiSlate7Ci.pdf /mnt/sdcard/") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strstr(allfpipe,"bytes in") == NULL) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+            /// fusing serial brand and model
+            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span>", "Going to recovery mode .. ", "phase 10");
+            gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+            while (gtk_events_pending ())
+                gtk_main_iteration ();
+            g_free (syncMsgMarkup);
+
+            if (asprintf(&command, "%s", "adb shell am broadcast -a android.intent.action.MASTER_CLEAR") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strstr(allfpipe,"Broadcast completed: result=0") == NULL) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+            system("rm ./nandc.img*");
+            system("rm ./ramdisk-recovery.img");
+            system("rm ./modfrecovery.img");
+
+
+            if (asprintf(&command, "%s", "cp ./case2default.prop ./case2ramdisk/default.prop") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strlen(allfpipe)> 3) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"large\">%s</span><b> %s </b>", "Success!\nSerial: %s\nMAC: %s", serialno, mac_add);
+            if (mac_add)
+                free(mac_add);
+            mac_add = NULL;
+            if (serialno)
+                free(serialno);
+            serialno = NULL;
             dialog = gtk_message_dialog_new(GTK_WINDOW(window),
                                             GTK_DIALOG_DESTROY_WITH_PARENT,
                                             GTK_MESSAGE_INFO,
@@ -377,19 +1038,6 @@ prog_clicked_handler(GtkWidget *widget)
             g_timeout_add(10000, (GSourceFunc) program_handler, NULL);
             return FALSE;
 
-            system("adb shell 'echo \"halt\" > /sys/power/wake_lock'");
-
-            if (asprintf(&command, "%s", "adb shell 'cat /dev/block/nandc > /mnt/sdcard/nandc.img'") < 0) {
-                goto malloc_failure;
-            }
-
-            if (!issue_adb_command(command)) {
-                goto malloc_failure;
-            }
-            free(command);
-            free(allfpipe);
-            command = NULL;
-            allfpipe = NULL;
 
         } else {
             syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"red\" size=\"large\">%s</span><b>please close program and re-launch it from console from the following path <span foreground=\"blue\" size=\"large\">%s</span></b>", "wrong program path!\n" , "~/android4.0/out/target/product/nuclear-evb/");
@@ -410,6 +1058,45 @@ prog_clicked_handler(GtkWidget *widget)
         }
     }
 
+    return FALSE;
+
+adb_command_failure:
+    syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"red\" size=\"large\">%s</span><b> %s </b>", "Programming Error!\n", allfpipe);
+    dialog = gtk_message_dialog_new(GTK_WINDOW(window),
+                                    GTK_DIALOG_DESTROY_WITH_PARENT,
+                                    GTK_MESSAGE_ERROR,
+                                    GTK_BUTTONS_OK,
+                                    syncMsgMarkup);
+    gtk_message_dialog_set_markup (GTK_MESSAGE_DIALOG (dialog),  syncMsgMarkup);
+    gtk_window_set_title(GTK_WINDOW(dialog), "Critical Error");
+    gtk_dialog_run(GTK_DIALOG(dialog));
+    gtk_widget_destroy(dialog);
+    g_free (syncMsgMarkup);
+
+    syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be shown in 10 secs </span>");
+    gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+    g_free (syncMsgMarkup);
+    if (command)
+        free(command);
+    if (allfpipe)
+        free(allfpipe);
+
+    if (postrequest)
+        free(postrequest);
+    if (response)
+        free(response);
+    if (chunk.memory)
+        free(chunk.memory);
+    if (bodyChunk.memory)
+        free(bodyChunk.memory);
+    if (dw_message)
+        free(dw_message);
+    if (mac_add)
+        free(mac_add);
+    if (serialno)
+        free(serialno);
+
+    g_timeout_add(10000, (GSourceFunc) program_handler, NULL);
     return FALSE;
 
 curl_failed:
@@ -443,12 +1130,16 @@ curl_failed:
         free(bodyChunk.memory);
     if (dw_message)
         free(dw_message);
+    if (mac_add)
+        free(mac_add);
+    if (serialno)
+        free(serialno);
 
     g_timeout_add(10000, (GSourceFunc) program_handler, NULL);
     return FALSE;
 
 server_error_msg:
-    syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"red\" size=\"large\">%s</span><b> %s </b>", "Wrong server response!\n", dw_message);
+    syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"red\" size=\"large\">%s</span><b> %s </b>", "Server error message!\n", dw_message);
     dialog = gtk_message_dialog_new(GTK_WINDOW(window),
                                     GTK_DIALOG_DESTROY_WITH_PARENT,
                                     GTK_MESSAGE_ERROR,
@@ -478,6 +1169,10 @@ server_error_msg:
         free(bodyChunk.memory);
     if (dw_message)
         free(dw_message);
+    if (mac_add)
+        free(mac_add);
+    if (serialno)
+        free(serialno);
 
     g_timeout_add(10000, (GSourceFunc) program_handler, NULL);
     return FALSE;
@@ -513,6 +1208,10 @@ wrong_server_response:
         free(bodyChunk.memory);
     if (dw_message)
         free(dw_message);
+    if (mac_add)
+        free(mac_add);
+    if (serialno)
+        free(serialno);
     g_timeout_add(10000, (GSourceFunc) program_handler, NULL);
 
     return FALSE;
@@ -548,6 +1247,10 @@ no_device_error:
         free(bodyChunk.memory);
     if (dw_message)
         free(dw_message);
+    if (mac_add)
+        free(mac_add);
+    if (serialno)
+        free(serialno);
     g_timeout_add(10000, (GSourceFunc) program_handler, NULL);
 
     return FALSE;
@@ -570,6 +1273,10 @@ malloc_failure:
 
     if (dw_message)
         free(dw_message);
+    if (mac_add)
+        free(mac_add);
+    if (serialno)
+        free(serialno);
 
     syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"red\" size=\"large\">%s</span><b>please close any other running Apps and try again!</b>", "Not enough system resources!\n");
     dialog = gtk_message_dialog_new(GTK_WINDOW(window),
@@ -591,8 +1298,8 @@ malloc_failure:
 static gboolean
 sync_clicked_handler(GtkWidget *widget)
 {
-    char* response;
-    char *postrequest;
+    char *response = NULL;
+    char *postrequest = NULL;
     CURL *curl;
     CURLcode res;
     struct MemoryStruct chunk;
@@ -671,7 +1378,7 @@ sync_clicked_handler(GtkWidget *widget)
                                                 gtk_label_set_markup(GTK_LABEL(syncLabel), syncMsgMarkup);
                                                 g_free (syncMsgMarkup);
 
-                                                syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\">  Select a </span><span foreground=\"blue\" size=\"x-large\">%s</span><span size=\"x-large\"> and </span><span foreground=\"blue\" size=\"x-large\">%s</span>", "Brand", "Model");
+                                                syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\">Select </span><span foreground=\"blue\" size=\"x-large\">%s</span><span size=\"x-large\"> | </span><span foreground=\"blue\" size=\"x-large\">%s</span><span size=\"x-large\"> combination to activate programming option</span>", "Brand", "Model");
                                                 gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
                                                 g_free (syncMsgMarkup);
 
@@ -750,7 +1457,7 @@ curl_failed:
     if (dw_message)
         free(dw_message);
 
-    syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"red\" size=\"large\">%s</span>", "Error connecting to server!    ");
+    syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"red\" size=\"large\">%s</span> 'Server Sync' button will re-show in 10  secs", "Error connecting to server!    ");
     gtk_label_set_markup(GTK_LABEL(syncLabel), syncMsgMarkup);
     g_free (syncMsgMarkup);
     g_timeout_add(10000, (GSourceFunc) timer_handler, NULL);
@@ -855,7 +1562,7 @@ void combo_changed(GtkWidget *widget, gpointer data)
     if (actvBrand != -1 && actvModel != -1 && strlen(actvBrandText) > 0 && strlen(actvModelText) > 0) {
         gtk_widget_show(progButton);
         gtk_widget_set_sensitive(brandmodelHBox,FALSE);
-        syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\">  You can start programming with this Brand/Model combination   </span><span foreground=\"green\" size=\"x-large\"> %s </span>", "-->>");
+        syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\">You can start programming with this </span><span foreground=\"yellow\" size=\"x-large\"> %s </span>|<span foreground=\"yellow\" size=\"x-large\"> %s </span><span size=\"x-large\"> combination </span><span foreground=\"green\" size=\"x-large\"> %s </span>", "Brand", "Model", "-->>");
         gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
         g_free (syncMsgMarkup);
     } else {
@@ -903,7 +1610,7 @@ int main( int argc, char *argv[])
     g_signal_connect_swapped(G_OBJECT(window), "destroy",
                              G_CALLBACK(gtk_main_quit), G_OBJECT(window));
 
-    syncAlignment = gtk_alignment_new(0.5f, 0, 0, 0);
+    syncAlignment = gtk_alignment_new(0, 0, 0, 0);
     gtk_container_add(GTK_CONTAINER(window), syncAlignment);
 
     mainVBox = gtk_vbox_new(FALSE, 5);
@@ -993,7 +1700,7 @@ int main( int argc, char *argv[])
     gtk_label_set_justify(GTK_LABEL(progMsgLable), GTK_JUSTIFY_LEFT);
     gtk_box_pack_start(GTK_BOX(msgHBox), progMsgLable, FALSE, FALSE, 5);
 
-    syncMsgMarkup = g_markup_printf_escaped ("<b><span foreground=\"blue\" size=\"x-large\">%s</span></b>", "You must sync with the server first ..");
+    syncMsgMarkup = g_markup_printf_escaped ("<b><span foreground=\"blue\" size=\"x-large\">%s</span></b>", "You must sync with the server ..");
     gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
     g_free (syncMsgMarkup);
 

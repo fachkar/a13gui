@@ -535,20 +535,6 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s", "adb pull /ueventd.sun5i.rc ./case2ramdisk/ueventd.sun5i.rc 2>&1") < 0) {
-                goto malloc_failure;
-            }
-            if (!issue_adb_command(command)) {
-                goto malloc_failure;
-            }
-            if (strstr(allfpipe,"bytes in") == NULL) {
-                goto adb_command_failure;
-            }
-            free(command);
-            free(allfpipe);
-            command = NULL;
-            allfpipe = NULL;
-
             /// Backing-up block C
             syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span><span size=\"x-large\"><b>%d</b></span>", "Pre-Processing block C .. ", "phase ", phaseCountr++);
             gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);

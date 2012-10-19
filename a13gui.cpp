@@ -314,7 +314,7 @@ prog_clicked_handler(GtkWidget *widget)
             curl_global_init(CURL_GLOBAL_ALL);
             curl = curl_easy_init();
             if (curl) {
-                curl_easy_setopt(curl, CURLOPT_URL, "http://10.0.0.26/progserver/touchrequest.jsp");
+                curl_easy_setopt(curl, CURLOPT_URL, "https://support.datawind-s.com/progserver/touchrequest.jsp");
                 curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postrequest);
 
                 curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1);
@@ -867,7 +867,7 @@ prog_clicked_handler(GtkWidget *widget)
 
             /// must check nandi availability
             /// push databk.tar
-            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span><span size=\"x-large\"><b>%d</b></span>", "Processing block I .. ", "phase ", phaseCountr++);
+            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span><span size=\"x-large\"><b>%d</b></span>", "Pre-Processing block I .. ", "phase ", phaseCountr++);
             gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
             while (gtk_events_pending ())
                 gtk_main_iteration ();
@@ -906,13 +906,8 @@ prog_clicked_handler(GtkWidget *widget)
 
 
             if (hasDatabk) {
-                syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"large\">%s</span>Data resotaration Dialog will show-up\n<b>Make sure to Click or Tap on restore data button</b>", "Unlock the tablet!\n");
-                if (mac_add)
-                    free(mac_add);
-                mac_add = NULL;
-                if (serialno)
-                    free(serialno);
-                serialno = NULL;
+                syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"large\">%s</span><span size=\"large\">Full restore dialog will show-up\nMake sure to Click or Tap on <b>'Restore my data'</b> button\nThe Tablet will reboot when done</span>", "Unlock the tablet!\n");
+
                 dialog = gtk_message_dialog_new(GTK_WINDOW(window),
                                                 GTK_DIALOG_DESTROY_WITH_PARENT,
                                                 GTK_MESSAGE_INFO,
@@ -922,7 +917,18 @@ prog_clicked_handler(GtkWidget *widget)
                 gtk_window_set_title(GTK_WINDOW(dialog), "Restore Data");
                 gtk_dialog_run(GTK_DIALOG(dialog));
                 gtk_widget_destroy(dialog);
+                while (gtk_events_pending ())
+                    gtk_main_iteration ();
                 g_free (syncMsgMarkup);
+
+                syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span><span size=\"x-large\"><b>%d</b></span>", "Restoring Apps and Settings, this may take up to 2 minutes .. ", "phase ", phaseCountr++);
+                gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+                while (gtk_events_pending ())
+                    gtk_main_iteration ();
+                g_free (syncMsgMarkup);
+
+
+                /// adb backup -f a13_case2.ab -apk -shared -system -all
 
                 if (asprintf(&command, "%s", "adb restore ./a13_case2.ab 2>&1") < 0) {
                     goto malloc_failure;
@@ -1451,7 +1457,7 @@ sync_clicked_handler(GtkWidget *widget)
     curl_global_init(CURL_GLOBAL_ALL);
     curl = curl_easy_init();
     if (curl) {
-        curl_easy_setopt(curl, CURLOPT_URL, "http://10.0.0.26/progserver/touchrequest.jsp");
+        curl_easy_setopt(curl, CURLOPT_URL, "https://support.datawind-s.com/progserver/touchrequest.jsp");
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postrequest);
 
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1);

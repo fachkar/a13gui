@@ -126,6 +126,8 @@ prog_clicked_handler(GtkWidget *widget)
     bodyChunk.memory = (char*)malloc(1);
     bodyChunk.size = 0;
 
+    unsigned int phaseCountr = 0;
+
     gchar * currentDir = g_get_current_dir();
     if (currentDir != NULL) {
         char * pnuclearOutputFound = strstr(currentDir, "out/target/product/nuclear-evb");
@@ -157,6 +159,8 @@ prog_clicked_handler(GtkWidget *widget)
 
                 syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be re-shown in 10 secs </span>");
                 gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+                while (gtk_events_pending ())
+                    gtk_main_iteration ();
                 g_free (syncMsgMarkup);
                 free(command);
                 command = NULL;
@@ -172,68 +176,7 @@ prog_clicked_handler(GtkWidget *widget)
             free(allfpipe);
             allfpipe = NULL;
 
-
-            if (asprintf(&command, "%s", "adb shell netcfg | grep wlan0") < 0) {
-                goto malloc_failure;
-            }
-            if (!issue_adb_command(command)) {
-                goto malloc_failure;
-            }
-
-            if ( strstr(allfpipe, "error: device not found") != NULL ) {
-                goto no_device_error;
-            }
-
-            pch = strstr(allfpipe, "00:");
-            if (pch) {
-                char * pchEnd = strstr(pch, "\r\n");
-                if (pchEnd != NULL) {
-                    char * tmpmac = (char*) malloc(strlen(pch) - strlen(pchEnd));
-                    if (tmpmac != NULL) {
-                        memset(tmpmac, 0, strlen(pch) - strlen(pchEnd));
-                        strncpy(tmpmac, pch, strlen(pch) - strlen(pchEnd) );
-                        asprintf(&mac_add, "%s", tmpmac);
-                    } else {
-                        goto malloc_failure;
-                    }
-                    if (tmpmac)
-                        free(tmpmac);
-                } else
-                    asprintf(&mac_add, "%s", pch);
-            } else {
-                syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"red\" size=\"large\">%s</span><b>Make sure the WiFi is enabled on the Tablet</b>", "WiFi Not Enabled!\n");
-                dialog = gtk_message_dialog_new(GTK_WINDOW(window),
-                                                GTK_DIALOG_DESTROY_WITH_PARENT,
-                                                GTK_MESSAGE_ERROR,
-                                                GTK_BUTTONS_OK,
-                                                syncMsgMarkup);
-                gtk_message_dialog_set_markup (GTK_MESSAGE_DIALOG (dialog),  syncMsgMarkup);
-                gtk_window_set_title(GTK_WINDOW(dialog), "Device Error");
-                gtk_dialog_run(GTK_DIALOG(dialog));
-                gtk_widget_destroy(dialog);
-                g_free (syncMsgMarkup);
-
-                syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be re-shown in 10 secs </span>");
-                gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
-                g_free (syncMsgMarkup);
-                syncMsgMarkup = NULL;
-                free(command);
-                command = NULL;
-                free(allfpipe);
-                allfpipe = NULL;
-
-                g_timeout_add(10000, (GSourceFunc) program_handler, NULL);
-
-                return FALSE;
-            }
-
-            free(command);
-            free(allfpipe);
-            command = NULL;
-            allfpipe = NULL;
-
-
-            // get firmware version
+            /// get firmware version
             if (asprintf(&command, "%s", "adb shell getprop ro.build.version.release") < 0) {
                 goto malloc_failure;
             }
@@ -271,8 +214,98 @@ prog_clicked_handler(GtkWidget *widget)
             command = NULL;
             allfpipe = NULL;
 
-            asprintf(&postrequest, "provider=%s&providerkey=%s&clientid=%s&action=getserialid&brand=%s&model=%s&firmware=%s&macid=%s", gtk_entry_get_text(GTK_ENTRY(usernameEntry)), gtk_entry_get_text(GTK_ENTRY(passEntry)), g_get_host_name()
-                     , gtk_combo_box_get_active_text((GtkComboBox*)brandCombo), gtk_combo_box_get_active_text((GtkComboBox*)modelCombo), firmware, mac_add);
+            /// enabling wifi
+            if (asprintf(&command, "%s", "adb shell service call wifi 13 i32 1") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if ( strstr(allfpipe, "error: device not found") != NULL ) {
+                goto no_device_error;
+            }
+            free(command);
+            command = NULL;
+            free(allfpipe);
+            allfpipe = NULL;
+
+            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span><span size=\"x-large\"><b>%d</b></span>", "Enabling Wifi .. ", "phase ", phaseCountr++);
+            gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+            while (gtk_events_pending ())
+                gtk_main_iteration ();
+            g_free (syncMsgMarkup);
+
+            g_usleep(2000000);
+
+            if (asprintf(&command, "%s", "adb shell netcfg | grep wlan0") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+
+            if ( strstr(allfpipe, "error: device not found") != NULL ) {
+                goto no_device_error;
+            }
+
+            pch = strstr(allfpipe, "00:");
+            if (pch) {
+                char * pchEnd = strstr(pch, "\r\n");
+                if (pchEnd != NULL) {
+                    char * tmpmac = (char*) malloc(strlen(pch));
+                    if (tmpmac != NULL) {
+                        memset(tmpmac, 0, strlen(pch) );
+                        strncpy(tmpmac, pch, strlen(pch) - strlen(pchEnd) );
+                        asprintf(&mac_add, "%s", tmpmac);
+                    } else {
+                        goto malloc_failure;
+                    }
+                    if (tmpmac)
+                        free(tmpmac);
+                } else
+                    asprintf(&mac_add, "%s", pch);
+            } else {
+                syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"red\" size=\"large\">%s</span><b>Make sure the WiFi is enabled on the Tablet</b>", "WiFi Not Enabled!\n");
+                dialog = gtk_message_dialog_new(GTK_WINDOW(window),
+                                                GTK_DIALOG_DESTROY_WITH_PARENT,
+                                                GTK_MESSAGE_ERROR,
+                                                GTK_BUTTONS_OK,
+                                                syncMsgMarkup);
+                gtk_message_dialog_set_markup (GTK_MESSAGE_DIALOG (dialog),  syncMsgMarkup);
+                gtk_window_set_title(GTK_WINDOW(dialog), "Device Error");
+                gtk_dialog_run(GTK_DIALOG(dialog));
+                gtk_widget_destroy(dialog);
+                g_free (syncMsgMarkup);
+
+                syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be re-shown in 10 secs </span>");
+                gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+                while (gtk_events_pending ())
+                    gtk_main_iteration ();
+                g_free (syncMsgMarkup);
+                syncMsgMarkup = NULL;
+                free(command);
+                command = NULL;
+                free(allfpipe);
+                allfpipe = NULL;
+
+                g_timeout_add(10000, (GSourceFunc) program_handler, NULL);
+
+                return FALSE;
+            }
+
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span><span size=\"x-large\"><b>%d</b></span>", "Sending Tablet info to server .. ", "phase ", phaseCountr++);
+            gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+            while (gtk_events_pending ())
+                gtk_main_iteration ();
+            g_free (syncMsgMarkup);
+
+            asprintf(&postrequest, "provider=%s&providerkey=%s&clientid=%s&action=getserialid&brand=%s&model=%s%s&firmware=%s&macid=%s", gtk_entry_get_text(GTK_ENTRY(usernameEntry)), gtk_entry_get_text(GTK_ENTRY(passEntry)), g_get_host_name()
+                     , gtk_combo_box_get_active_text((GtkComboBox*)brandCombo), gtk_combo_box_get_active_text((GtkComboBox*)modelCombo), ".AS", firmware, mac_add);
 
             if (firmware)
                 free(firmware);
@@ -365,80 +398,9 @@ prog_clicked_handler(GtkWidget *widget)
                 free(response);
             response = NULL;
 
-            /// get a lock
-            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span>", "Backing-up block C .. ", "phase 1");
-            gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
-            while (gtk_events_pending ())
-                gtk_main_iteration ();
-            g_free (syncMsgMarkup);
-            system("adb shell 'echo \"halt\" > /sys/power/wake_lock'");
-
-            /// get original kernel
-            if (asprintf(&command, "%s", "adb shell 'cat /dev/block/nandc > /mnt/sdcard/nandc.img' 2>&1") < 0) {
-                goto malloc_failure;
-            }
-
-            if (!issue_adb_command(command)) {
-                goto malloc_failure;
-            }
-
-            if (strlen(allfpipe)> 3) {
-                goto adb_command_failure;
-            }
-            free(command);
-            free(allfpipe);
-            command = NULL;
-            allfpipe = NULL;
-
-
-            /// pull original kernel
-            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span>", "Backing-up block C .. ", "phase 2");
-            gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
-            while (gtk_events_pending ())
-                gtk_main_iteration ();
-            g_free (syncMsgMarkup);
-            if (asprintf(&command, "%s", "adb pull /mnt/sdcard/nandc.img 2>&1") < 0) {
-                goto malloc_failure;
-            }
-
-            if (!issue_adb_command(command)) {
-                goto malloc_failure;
-            }
-
-            if (strstr(allfpipe,"bytes in") == NULL) {
-                goto adb_command_failure;
-            }
-            free(command);
-            free(allfpipe);
-            command = NULL;
-            allfpipe = NULL;
-
-
-            /// pull original kernel
-            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span>", "Pre-Processing block C .. ", "phase 3");
-            gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
-            while (gtk_events_pending ())
-                gtk_main_iteration ();
-            g_free (syncMsgMarkup);
-            if (asprintf(&command, "%s", "./split_bootimg.pl nandc.img 2>&1") < 0) {
-                goto malloc_failure;
-            }
-
-            if (!issue_adb_command(command)) {
-                goto malloc_failure;
-            }
-
-            if (strstr(allfpipe,"Writing nandc.img-kernel ... complete.") == NULL) {
-                goto adb_command_failure;
-            }
-            free(command);
-            free(allfpipe);
-            command = NULL;
-            allfpipe = NULL;
-
 
             /// pull inits
-            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span>", "Processing block A .. ", "phase 4");
+            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span><span size=\"x-large\"><b>%d</b></span>", "Pre-Processing block A .. ", "phase ", phaseCountr++);
             gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
             while (gtk_events_pending ())
                 gtk_main_iteration ();
@@ -587,20 +549,46 @@ prog_clicked_handler(GtkWidget *widget)
             command = NULL;
             allfpipe = NULL;
 
-
-            /// push preinstall
-            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span>", "Processing block D .. ", "phase 5");
+            /// Backing-up block C
+            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span><span size=\"x-large\"><b>%d</b></span>", "Pre-Processing block C .. ", "phase ", phaseCountr++);
             gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
             while (gtk_events_pending ())
                 gtk_main_iteration ();
             g_free (syncMsgMarkup);
+            system("adb shell 'echo \"halt\" > /sys/power/wake_lock'");
 
-            if (asprintf(&command, "%s", "adb push ./preinstall.sh /system/bin/ 2>&1") < 0) {
+            /// get original kernel
+            if (asprintf(&command, "%s", "adb shell 'cat /dev/block/nandc > /mnt/sdcard/nandc.img' 2>&1") < 0) {
                 goto malloc_failure;
             }
+
             if (!issue_adb_command(command)) {
                 goto malloc_failure;
             }
+
+            if (strlen(allfpipe)> 3) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            /// pull original kernel
+            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span><span size=\"x-large\"><b>%d</b></span>", "Getting new block C .. ", "phase ", phaseCountr++);
+            gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+            while (gtk_events_pending ())
+                gtk_main_iteration ();
+            g_free (syncMsgMarkup);
+            if (asprintf(&command, "%s", "adb pull /mnt/sdcard/nandc.img 2>&1") < 0) {
+                goto malloc_failure;
+            }
+
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+
             if (strstr(allfpipe,"bytes in") == NULL) {
                 goto adb_command_failure;
             }
@@ -610,7 +598,7 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s", "adb shell chmod 750 /system/bin/preinstall.sh 2>&1") < 0) {
+            if (asprintf(&command, "%s", "adb shell rm /mnt/sdcard/nandc.img 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -624,125 +612,22 @@ prog_clicked_handler(GtkWidget *widget)
             command = NULL;
             allfpipe = NULL;
 
-            /// push preinstall
-            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span>", "Processing block I .. ", "phase 6");
+
+            /// pull original kernel
+            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span><span size=\"x-large\"><b>%d</b></span>", "Checking block C .. ", "phase ", phaseCountr++);
             gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
             while (gtk_events_pending ())
                 gtk_main_iteration ();
             g_free (syncMsgMarkup);
-
-            if (asprintf(&command, "%s", "adb shell mkdir /databk 2>&1") < 0) {
+            if (asprintf(&command, "%s", "./split_bootimg.pl nandc.img 2>&1") < 0) {
                 goto malloc_failure;
             }
+
             if (!issue_adb_command(command)) {
                 goto malloc_failure;
             }
-            if (strlen(allfpipe)> 3) {
-                goto adb_command_failure;
-            }
-            free(command);
-            free(allfpipe);
-            command = NULL;
-            allfpipe = NULL;
 
-
-            if (asprintf(&command, "%s", "adb shell mount -t ext4 /dev/block/nandi /databk 2>&1") < 0) {
-                goto malloc_failure;
-            }
-            if (!issue_adb_command(command)) {
-                goto malloc_failure;
-            }
-            if (strlen(allfpipe)> 3) {
-                goto adb_command_failure;
-            }
-            free(command);
-            free(allfpipe);
-            command = NULL;
-            allfpipe = NULL;
-
-
-            if (asprintf(&command, "%s", "adb shell rm /databk/data_backup.tar 2>&1") < 0) {
-                goto malloc_failure;
-            }
-            if (!issue_adb_command(command)) {
-                goto malloc_failure;
-            }
-//             if (strlen(allfpipe)> 3) {
-//                 goto adb_command_failure;
-//             }
-            free(command);
-            free(allfpipe);
-            command = NULL;
-            allfpipe = NULL;
-
-
-            if (asprintf(&command, "%s", "adb shell sync 2>&1") < 0) {
-                goto malloc_failure;
-            }
-            if (!issue_adb_command(command)) {
-                goto malloc_failure;
-            }
-            if (strlen(allfpipe)> 3) {
-                goto adb_command_failure;
-            }
-            free(command);
-            free(allfpipe);
-            command = NULL;
-            allfpipe = NULL;
-
-
-            if (asprintf(&command, "%s", "adb push ./case2_data_backup.tar /databk/data_backup.tar 2>&1") < 0) {
-                goto malloc_failure;
-            }
-            if (!issue_adb_command(command)) {
-                goto malloc_failure;
-            }
-            if (strstr(allfpipe,"bytes in") == NULL) {
-                goto adb_command_failure;
-            }
-            free(command);
-            free(allfpipe);
-            command = NULL;
-            allfpipe = NULL;
-
-
-
-            if (asprintf(&command, "%s", "adb shell sync 2>&1") < 0) {
-                goto malloc_failure;
-            }
-            if (!issue_adb_command(command)) {
-                goto malloc_failure;
-            }
-            if (strlen(allfpipe)> 3) {
-                goto adb_command_failure;
-            }
-            free(command);
-            free(allfpipe);
-            command = NULL;
-            allfpipe = NULL;
-
-
-            if (asprintf(&command, "%s", "adb shell umount /databk 2>&1") < 0) {
-                goto malloc_failure;
-            }
-            if (!issue_adb_command(command)) {
-                goto malloc_failure;
-            }
-            if (strlen(allfpipe)> 3) {
-                goto adb_command_failure;
-            }
-            free(command);
-            free(allfpipe);
-            command = NULL;
-            allfpipe = NULL;
-
-            if (asprintf(&command, "%s", "adb shell sync 2>&1") < 0) {
-                goto malloc_failure;
-            }
-            if (!issue_adb_command(command)) {
-                goto malloc_failure;
-            }
-            if (strlen(allfpipe)> 3) {
+            if (strstr(allfpipe,"Writing nandc.img-kernel ... complete.") == NULL) {
                 goto adb_command_failure;
             }
             free(command);
@@ -752,7 +637,7 @@ prog_clicked_handler(GtkWidget *widget)
 
 
             /// prepare nanda
-            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span>", "Processing block C .. ", "phase 7");
+            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span><span size=\"x-large\"><b>%d</b></span>", "Fusing block A .. ", "phase ", phaseCountr++);
             gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
             while (gtk_events_pending ())
                 gtk_main_iteration ();
@@ -834,7 +719,7 @@ prog_clicked_handler(GtkWidget *widget)
 
 
             /// fusing serial brand and model
-            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span>", "Fusing serial | brand | model .. ", "phase 8");
+            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span><span size=\"x-large\"><b>%d</b></span>", "Fusing serial | brand | model .. ", "phase ", phaseCountr++);
             gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
             while (gtk_events_pending ())
                 gtk_main_iteration ();
@@ -870,7 +755,7 @@ prog_clicked_handler(GtkWidget *widget)
             allfpipe = NULL;
 
 
-            if (asprintf(&command, "%s%s%s", "echo \"ro.product.model=", gtk_combo_box_get_active_text((GtkComboBox*)modelCombo) , "\" >> ./case2ramdisk/default.prop 2>&1") < 0) {
+            if (asprintf(&command, "%s%s%s", "echo \"ro.product.model=", gtk_combo_box_get_active_text((GtkComboBox*)modelCombo) , ".AT\" >> ./case2ramdisk/default.prop 2>&1") < 0) {
                 goto malloc_failure;
             }
             if (!issue_adb_command(command)) {
@@ -961,49 +846,6 @@ prog_clicked_handler(GtkWidget *widget)
             command = NULL;
             allfpipe = NULL;
 
-
-            /// fusing serial brand and model
-            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span>", "Pushing user manual .. ", "phase 9");
-            gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
-            while (gtk_events_pending ())
-                gtk_main_iteration ();
-            g_free (syncMsgMarkup);
-
-            if (asprintf(&command, "%s", "adb push ./User_Manual_UbiSlate7Ci.pdf /mnt/sdcard/ 2>&1") < 0) {
-                goto malloc_failure;
-            }
-            if (!issue_adb_command(command)) {
-                goto malloc_failure;
-            }
-            if (strstr(allfpipe,"bytes in") == NULL) {
-                goto adb_command_failure;
-            }
-            free(command);
-            free(allfpipe);
-            command = NULL;
-            allfpipe = NULL;
-
-            /// fusing serial brand and model
-            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span>", "Going to recovery mode .. ", "phase 10");
-            gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
-            while (gtk_events_pending ())
-                gtk_main_iteration ();
-            g_free (syncMsgMarkup);
-
-            if (asprintf(&command, "%s", "adb shell am broadcast -a android.intent.action.MASTER_CLEAR 2>&1") < 0) {
-                goto malloc_failure;
-            }
-            if (!issue_adb_command(command)) {
-                goto malloc_failure;
-            }
-            if (strstr(allfpipe,"Broadcast completed: result=0") == NULL) {
-                goto adb_command_failure;
-            }
-            free(command);
-            free(allfpipe);
-            command = NULL;
-            allfpipe = NULL;
-
             system("rm ./nandc.img*");
             system("rm ./ramdisk-recovery.img");
             system("rm ./modfrecovery.img");
@@ -1022,6 +864,264 @@ prog_clicked_handler(GtkWidget *widget)
             free(allfpipe);
             command = NULL;
             allfpipe = NULL;
+
+            /// must check nandi availability
+            /// push databk.tar
+            syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span><span size=\"x-large\"><b>%d</b></span>", "Processing block I .. ", "phase ", phaseCountr++);
+            gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+            while (gtk_events_pending ())
+                gtk_main_iteration ();
+            g_free (syncMsgMarkup);
+
+            if (asprintf(&command, "%s", "adb shell mkdir /databk 2>&1") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strlen(allfpipe)> 3) {
+                goto adb_command_failure;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            gboolean hasDatabk = FALSE;
+
+            if (asprintf(&command, "%s", "adb shell mount -t ext4 /dev/block/nandi /databk 2>&1") < 0) {
+                goto malloc_failure;
+            }
+            if (!issue_adb_command(command)) {
+                goto malloc_failure;
+            }
+            if (strlen(allfpipe)> 3) {
+                hasDatabk = TRUE;
+            }
+            free(command);
+            free(allfpipe);
+            command = NULL;
+            allfpipe = NULL;
+
+
+            if (hasDatabk) {
+                syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"large\">%s</span>Data resotaration Dialog will show-up\n<b>Make sure to Click or Tap on restore data button</b>", "Unlock the tablet!\n");
+                if (mac_add)
+                    free(mac_add);
+                mac_add = NULL;
+                if (serialno)
+                    free(serialno);
+                serialno = NULL;
+                dialog = gtk_message_dialog_new(GTK_WINDOW(window),
+                                                GTK_DIALOG_DESTROY_WITH_PARENT,
+                                                GTK_MESSAGE_INFO,
+                                                GTK_BUTTONS_OK,
+                                                syncMsgMarkup);
+                gtk_message_dialog_set_markup (GTK_MESSAGE_DIALOG (dialog),  syncMsgMarkup);
+                gtk_window_set_title(GTK_WINDOW(dialog), "Restore Data");
+                gtk_dialog_run(GTK_DIALOG(dialog));
+                gtk_widget_destroy(dialog);
+                g_free (syncMsgMarkup);
+
+                if (asprintf(&command, "%s", "adb restore ./a13_case2.ab 2>&1") < 0) {
+                    goto malloc_failure;
+                }
+                if (!issue_adb_command(command)) {
+                    goto malloc_failure;
+                }
+                if (strlen(allfpipe)> 3) {
+                    goto adb_command_failure;
+                }
+                free(command);
+                free(allfpipe);
+                command = NULL;
+                allfpipe = NULL;
+
+                if (asprintf(&command, "%s", "adb reboot") < 0) {
+                    goto malloc_failure;
+                }
+                if (!issue_adb_command(command)) {
+                    goto malloc_failure;
+                }
+                if (strlen(allfpipe)> 3) {
+                    goto adb_command_failure;
+                }
+                free(command);
+                free(allfpipe);
+                command = NULL;
+                allfpipe = NULL;
+
+            } else {
+                /// push preinstall
+                syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span><span size=\"x-large\"><b>%d</b></span>", "Processing block I .. ", "phase ", phaseCountr++);
+                gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+                while (gtk_events_pending ())
+                    gtk_main_iteration ();
+                g_free (syncMsgMarkup);
+
+                if (asprintf(&command, "%s", "adb push ./preinstall.sh /system/bin/ 2>&1") < 0) {
+                    goto malloc_failure;
+                }
+                if (!issue_adb_command(command)) {
+                    goto malloc_failure;
+                }
+                if (strstr(allfpipe,"bytes in") == NULL) {
+                    goto adb_command_failure;
+                }
+                free(command);
+                free(allfpipe);
+                command = NULL;
+                allfpipe = NULL;
+
+
+                if (asprintf(&command, "%s", "adb shell chmod 750 /system/bin/preinstall.sh 2>&1") < 0) {
+                    goto malloc_failure;
+                }
+                if (!issue_adb_command(command)) {
+                    goto malloc_failure;
+                }
+                if (strlen(allfpipe)> 3) {
+                    goto adb_command_failure;
+                }
+                free(command);
+                free(allfpipe);
+                command = NULL;
+                allfpipe = NULL;
+
+
+                if (asprintf(&command, "%s", "adb shell rm /databk/data_backup.tar 2>&1") < 0) {
+                    goto malloc_failure;
+                }
+                if (!issue_adb_command(command)) {
+                    goto malloc_failure;
+                }
+                //             if (strlen(allfpipe)> 3) {
+                //                 goto adb_command_failure;
+                //             }
+                free(command);
+                free(allfpipe);
+                command = NULL;
+                allfpipe = NULL;
+
+
+                if (asprintf(&command, "%s", "adb shell sync 2>&1") < 0) {
+                    goto malloc_failure;
+                }
+                if (!issue_adb_command(command)) {
+                    goto malloc_failure;
+                }
+                if (strlen(allfpipe)> 3) {
+                    goto adb_command_failure;
+                }
+                free(command);
+                free(allfpipe);
+                command = NULL;
+                allfpipe = NULL;
+
+
+                if (asprintf(&command, "%s", "adb push ./case2_data_backup.tar /databk/data_backup.tar 2>&1") < 0) {
+                    goto malloc_failure;
+                }
+                if (!issue_adb_command(command)) {
+                    goto malloc_failure;
+                }
+                if (strstr(allfpipe,"bytes in") == NULL) {
+                    goto adb_command_failure;
+                }
+                free(command);
+                free(allfpipe);
+                command = NULL;
+                allfpipe = NULL;
+
+
+
+                if (asprintf(&command, "%s", "adb shell sync 2>&1") < 0) {
+                    goto malloc_failure;
+                }
+                if (!issue_adb_command(command)) {
+                    goto malloc_failure;
+                }
+                if (strlen(allfpipe)> 3) {
+                    goto adb_command_failure;
+                }
+                free(command);
+                free(allfpipe);
+                command = NULL;
+                allfpipe = NULL;
+
+
+                if (asprintf(&command, "%s", "adb shell umount /databk 2>&1") < 0) {
+                    goto malloc_failure;
+                }
+                if (!issue_adb_command(command)) {
+                    goto malloc_failure;
+                }
+                if (strlen(allfpipe)> 3) {
+                    goto adb_command_failure;
+                }
+                free(command);
+                free(allfpipe);
+                command = NULL;
+                allfpipe = NULL;
+
+                if (asprintf(&command, "%s", "adb shell sync 2>&1") < 0) {
+                    goto malloc_failure;
+                }
+                if (!issue_adb_command(command)) {
+                    goto malloc_failure;
+                }
+                if (strlen(allfpipe)> 3) {
+                    goto adb_command_failure;
+                }
+                free(command);
+                free(allfpipe);
+                command = NULL;
+                allfpipe = NULL;
+
+
+                /// Pushing user manual
+                syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span><span size=\"x-large\"><b>%d</b></span>", "Pushing user manual .. ", "phase ", phaseCountr++);
+                gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+                while (gtk_events_pending ())
+                    gtk_main_iteration ();
+                g_free (syncMsgMarkup);
+
+                if (asprintf(&command, "%s", "adb push ./User_Manual_UbiSlate7Ci.pdf /mnt/sdcard/ 2>&1") < 0) {
+                    goto malloc_failure;
+                }
+                if (!issue_adb_command(command)) {
+                    goto malloc_failure;
+                }
+                if (strstr(allfpipe,"bytes in") == NULL) {
+                    goto adb_command_failure;
+                }
+                free(command);
+                free(allfpipe);
+                command = NULL;
+                allfpipe = NULL;
+
+                /// Going to recovery mode
+                syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span><span size=\"x-large\"><b>%d</b></span>", "Going to recovery mode .. ", "phase ", phaseCountr++);
+                gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+                while (gtk_events_pending ())
+                    gtk_main_iteration ();
+                g_free (syncMsgMarkup);
+
+                if (asprintf(&command, "%s", "adb shell am broadcast -a android.intent.action.MASTER_CLEAR 2>&1") < 0) {
+                    goto malloc_failure;
+                }
+                if (!issue_adb_command(command)) {
+                    goto malloc_failure;
+                }
+                if (strstr(allfpipe,"Broadcast completed: result=0") == NULL) {
+                    goto adb_command_failure;
+                }
+                free(command);
+                free(allfpipe);
+                command = NULL;
+                allfpipe = NULL;
+            }
 
             syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"large\">%s</span><b>Serial: %s\nMAC: %s</b>", "Success!\n", serialno, mac_add);
             if (mac_add)
@@ -1043,6 +1143,8 @@ prog_clicked_handler(GtkWidget *widget)
 
             syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be re-shown in 10 secs </span>");
             gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+            while (gtk_events_pending ())
+                gtk_main_iteration ();
             g_free (syncMsgMarkup);
             g_timeout_add(10000, (GSourceFunc) program_handler, NULL);
             return FALSE;
@@ -1058,6 +1160,8 @@ prog_clicked_handler(GtkWidget *widget)
                                             GTK_BUTTONS_OK,
                                             syncMsgMarkup);
             gtk_message_dialog_set_markup (GTK_MESSAGE_DIALOG (dialog),  syncMsgMarkup);
+            while (gtk_events_pending ())
+                gtk_main_iteration ();
             gtk_window_set_title(GTK_WINDOW(dialog), "Usage Error");
             gtk_dialog_run(GTK_DIALOG(dialog));
             gtk_widget_destroy(dialog);
@@ -1077,6 +1181,8 @@ adb_command_failure:
                                     GTK_BUTTONS_OK,
                                     syncMsgMarkup);
     gtk_message_dialog_set_markup (GTK_MESSAGE_DIALOG (dialog),  syncMsgMarkup);
+    while (gtk_events_pending ())
+        gtk_main_iteration ();
     gtk_window_set_title(GTK_WINDOW(dialog), "Critical Error");
     gtk_dialog_run(GTK_DIALOG(dialog));
     gtk_widget_destroy(dialog);
@@ -1084,6 +1190,8 @@ adb_command_failure:
 
     syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be re-shown in 10 secs </span>");
     gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+    while (gtk_events_pending ())
+        gtk_main_iteration ();
     g_free (syncMsgMarkup);
     if (command)
         free(command);
@@ -1116,6 +1224,8 @@ curl_failed:
                                     GTK_BUTTONS_OK,
                                     syncMsgMarkup);
     gtk_message_dialog_set_markup (GTK_MESSAGE_DIALOG (dialog),  syncMsgMarkup);
+    while (gtk_events_pending ())
+        gtk_main_iteration ();
     gtk_window_set_title(GTK_WINDOW(dialog), "Server Error");
     gtk_dialog_run(GTK_DIALOG(dialog));
     gtk_widget_destroy(dialog);
@@ -1123,6 +1233,8 @@ curl_failed:
 
     syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be re-shown in 10 secs </span>");
     gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+    while (gtk_events_pending ())
+        gtk_main_iteration ();
     g_free (syncMsgMarkup);
     if (command)
         free(command);
@@ -1155,6 +1267,8 @@ server_error_msg:
                                     GTK_BUTTONS_OK,
                                     syncMsgMarkup);
     gtk_message_dialog_set_markup (GTK_MESSAGE_DIALOG (dialog),  syncMsgMarkup);
+    while (gtk_events_pending ())
+        gtk_main_iteration ();
     gtk_window_set_title(GTK_WINDOW(dialog), "Server Error");
     gtk_dialog_run(GTK_DIALOG(dialog));
     gtk_widget_destroy(dialog);
@@ -1162,6 +1276,8 @@ server_error_msg:
 
     syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be re-shown in 10 secs </span>");
     gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+    while (gtk_events_pending ())
+        gtk_main_iteration ();
     g_free (syncMsgMarkup);
     if (command)
         free(command);
@@ -1194,13 +1310,17 @@ wrong_server_response:
                                     GTK_BUTTONS_OK,
                                     syncMsgMarkup);
     gtk_message_dialog_set_markup (GTK_MESSAGE_DIALOG (dialog),  syncMsgMarkup);
+    while (gtk_events_pending ())
+        gtk_main_iteration ();
     gtk_window_set_title(GTK_WINDOW(dialog), "Server Error");
     gtk_dialog_run(GTK_DIALOG(dialog));
     gtk_widget_destroy(dialog);
     g_free (syncMsgMarkup);
 
-    syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be re-shown in 10 secs </span>");
+    syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be re-enabled in 10 secs </span>");
     gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+    while (gtk_events_pending ())
+        gtk_main_iteration ();
     g_free (syncMsgMarkup);
     if (command)
         free(command);
@@ -1233,6 +1353,8 @@ no_device_error:
                                     GTK_BUTTONS_OK,
                                     syncMsgMarkup);
     gtk_message_dialog_set_markup (GTK_MESSAGE_DIALOG (dialog),  syncMsgMarkup);
+    while (gtk_events_pending ())
+        gtk_main_iteration ();
     gtk_window_set_title(GTK_WINDOW(dialog), "Device Error");
     gtk_dialog_run(GTK_DIALOG(dialog));
     gtk_widget_destroy(dialog);
@@ -1240,6 +1362,8 @@ no_device_error:
 
     syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\"> 'Program Tablet' button will be re-shown in 10 secs </span>");
     gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+    while (gtk_events_pending ())
+        gtk_main_iteration ();
     g_free (syncMsgMarkup);
     if (command)
         free(command);
@@ -1294,6 +1418,8 @@ malloc_failure:
                                     GTK_BUTTONS_OK,
                                     syncMsgMarkup);
     gtk_message_dialog_set_markup (GTK_MESSAGE_DIALOG (dialog),  syncMsgMarkup);
+    while (gtk_events_pending ())
+        gtk_main_iteration ();
     gtk_window_set_title(GTK_WINDOW(dialog), "Critical Error");
     gtk_dialog_run(GTK_DIALOG(dialog));
     gtk_widget_destroy(dialog);
@@ -1469,8 +1595,10 @@ curl_failed:
     if (dw_message)
         free(dw_message);
 
-    syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"red\" size=\"large\">%s</span> 'Server Sync' button will re-shown in 10  secs", "Error connecting to server!    ");
+    syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"red\" size=\"large\">%s</span><b> 'Server Sync' button will re-enabled in 10  secs</b>", "Error connecting to server!    ");
     gtk_label_set_markup(GTK_LABEL(syncLabel), syncMsgMarkup);
+    while (gtk_events_pending ())
+        gtk_main_iteration ();
     g_free (syncMsgMarkup);
     g_timeout_add(10000, (GSourceFunc) timer_handler, NULL);
     return FALSE;
@@ -1494,8 +1622,10 @@ wrong_server_response:
     if (dw_message)
         free(dw_message);
 
-    syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"red\" size=\"large\">%s</span>", "Wrong server response!    ");
+    syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"red\" size=\"large\">%s</span><b> 'Server Sync' button will re-enabled in 10  secs</b>", "Wrong server response!    ");
     gtk_label_set_markup(GTK_LABEL(syncLabel), syncMsgMarkup);
+    while (gtk_events_pending ())
+        gtk_main_iteration ();
     g_free (syncMsgMarkup);
     g_timeout_add(10000, (GSourceFunc) timer_handler, NULL);
     return FALSE;
@@ -1521,6 +1651,8 @@ malloc_failure:
 
     syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"red\" size=\"large\">%s</span>", "System Low on memory, try to close and re-run this application!    ");
     gtk_label_set_markup(GTK_LABEL(syncLabel), syncMsgMarkup);
+    while (gtk_events_pending ())
+        gtk_main_iteration ();
     g_free (syncMsgMarkup);
     g_timeout_add(10000, (GSourceFunc) timer_handler, NULL);
     return FALSE;
@@ -1544,8 +1676,10 @@ server_error_msg:
     if (dw_message)
         free(dw_message);
 
-    syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"red\" size=\"large\">%s</span> <b>%s</b>", "Authentication Error! ", "Check user name and password, you'll be able to retry in 10 secs ..");
+    syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"red\" size=\"large\">%s</span> <b>%s</b>", "Authentication Error! ", "Check user name and password,  'Server Sync' button will re-enabled in 10  secs");
     gtk_label_set_markup(GTK_LABEL(syncLabel), syncMsgMarkup);
+    while (gtk_events_pending ())
+        gtk_main_iteration ();
     g_free (syncMsgMarkup);
     g_timeout_add(10000, (GSourceFunc) timer_handler, NULL);
 
@@ -1558,6 +1692,8 @@ void prog_clicked(GtkWidget *widget, gpointer data)
 
     syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span>", "Programming ..    ");
     gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+    while (gtk_events_pending ())
+        gtk_main_iteration ();
     g_free (syncMsgMarkup);
 
     g_timeout_add(1000, (GSourceFunc) prog_clicked_handler, NULL);
@@ -1576,6 +1712,8 @@ void combo_changed(GtkWidget *widget, gpointer data)
         gtk_widget_set_sensitive(brandmodelHBox,FALSE);
         syncMsgMarkup = g_markup_printf_escaped ("<span size=\"x-large\">You can start programming with this </span><span foreground=\"yellow\" size=\"x-large\"> %s </span>|<span foreground=\"yellow\" size=\"x-large\"> %s </span><span size=\"x-large\"> combination </span><span foreground=\"green\" size=\"x-large\"> %s </span>", "Brand", "Model", "-->>");
         gtk_label_set_markup(GTK_LABEL(progMsgLable), syncMsgMarkup);
+        while (gtk_events_pending ())
+            gtk_main_iteration ();
         g_free (syncMsgMarkup);
     } else {
         gtk_widget_hide(progButton);
@@ -1588,6 +1726,8 @@ void sync_clicked(GtkWidget *widget, gpointer data)
     gtk_widget_set_sensitive(syncButton,FALSE);
     syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\">%s</span>", "Sync-ing ..    ");
     gtk_label_set_markup(GTK_LABEL(syncLabel), syncMsgMarkup);
+    while (gtk_events_pending ())
+        gtk_main_iteration ();
     g_free (syncMsgMarkup);
 
     gtk_widget_hide_all(usernameHBox);

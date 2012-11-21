@@ -5,7 +5,7 @@
 #include <linux/string.h>
 #include "dwa13.h"
 
-#define DEBUGO
+//#define DEBUGO
 
 char * mac_add = NULL;
 char * firmware = NULL;
@@ -248,7 +248,8 @@ prog_clicked_handler(GtkWidget *widget)
                 goto no_device_error;
             }
 
-            pch = strstr(allfpipe, "00:");
+            pch = strstr(allfpipe, ":");
+            pch -= 2;
             if (pch) {
                 char * pchEnd = strstr(pch, "\r\n");
                 if (pchEnd != NULL) {
@@ -330,8 +331,13 @@ prog_clicked_handler(GtkWidget *widget)
                 if (res != CURLE_OK) {
                     goto curl_failed;
                 }
-
+#ifdef DEBUGO
+                g_print("CURL_OK\n");
+#endif
                 asprintf(&response,"%s",chunk.memory);
+#ifdef DEBUGO
+                g_print("response: %s\n", response);
+#endif
                 char * pdw_messageStart = strstr(response, "dw-message: ");
                 if (pdw_messageStart != NULL) {
                     char * pdw_messageEnd = strstr(pdw_messageStart + strlen("dw-message: "), "\r\n");
@@ -397,7 +403,6 @@ prog_clicked_handler(GtkWidget *widget)
             if (response)
                 free(response);
             response = NULL;
-
 
             /// pull inits
             syncMsgMarkup = g_markup_printf_escaped ("<span foreground=\"blue\" size=\"x-large\">%s</span><span foreground=\"green\" size=\"x-large\">%s</span><span size=\"x-large\"><b>%d</b></span>", "Pre-Processing block A .. ", "phase ", phaseCountr++);
@@ -482,7 +487,7 @@ prog_clicked_handler(GtkWidget *widget)
             }
 
             if (strstr(allfpipe,"bytes in") == NULL) {
-                goto adb_command_failure;
+                //goto adb_command_failure;
             }
             free(command);
             free(allfpipe);
@@ -527,7 +532,7 @@ prog_clicked_handler(GtkWidget *widget)
                 goto malloc_failure;
             }
             if (strstr(allfpipe,"bytes in") == NULL) {
-                goto adb_command_failure;
+                //goto adb_command_failure;
             }
             free(command);
             free(allfpipe);
@@ -636,7 +641,7 @@ prog_clicked_handler(GtkWidget *widget)
                 goto malloc_failure;
             }
             if (strlen(allfpipe)> 3) {
-                goto adb_command_failure;
+                //goto adb_command_failure;
             }
             free(command);
             free(allfpipe);
